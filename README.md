@@ -60,7 +60,16 @@ SocialPulse הינו כלי אנליטי המאפשר לנתח ולהציג נת
 
 ### מבנה תיקיות נתונים
 
-## 🚀 Deployment
+## 🚀 Deployment Options
 
-### Local Development
-1. Clone the repository:
+### 1. Streamlit Cloud (Recommended)
+1. Fork this repository to your GitHub account
+2. Visit [Streamlit Cloud](https://share.streamlit.io)
+3. Connect with your GitHub account
+4. Deploy from your forked repository
+5. Add the following secrets in Streamlit Cloud settings:
+   - `TWITTER_API_KEY`
+   - `TWITTER_API_SECRET`
+   - `TWITTER_BEARER_TOKEN`
+
+### 2. Local Deployment

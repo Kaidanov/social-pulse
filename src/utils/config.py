@@ -26,6 +26,8 @@ DEFAULT_CONFIG = {
     },
     'api': {
         'twitter_api_key': '',
+        'bring_them_home_api_key': '',  # If required
+        'user_agent': 'SocialPulse/1.0 (Research Project)',
         'knesset_api_url': 'https://knesset.gov.il/api/v1'
     }
 } 
