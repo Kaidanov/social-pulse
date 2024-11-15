@@ -1,75 +1,7 @@
-# 📊 SocialPulse | סושיאל-פולס
+# Hostages Awareness Application
 
-ניטור וניתוח מגמות חברתיות בזמן אמת באמצעות כלים מתקדמים לניתוח נתונים וויזואליזציה.
+A Streamlit web application to raise awareness about hostages through social media integration.
 
-## 🎯 מטרת הפרויקט
+## Setup
 
-SocialPulse הינו כלי אנליטי המאפשר לנתח ולהציג נתונים באופן אינטראקטיבי. המערכת מאפשרת טעינת נתונים ממקורות שונים ומספקת תובנות משמעותיות באמצעות ממשק משתמש ידידותי.
-
-### יכולות עיקריות
-- 📈 ניתוח מגמות לאורך זמן
-- 📊 ויזואליזציות אינטראקטיביות
-- 🔍 סינון וחיפוש מתקדם
-- 📱 ממשק משתמש דו-לשוני (עברית/אנגלית)
-- 📥 ייצוא נתונים ודו"חות
-
-## 🛠️ טכנולוגיות
-
-- **Python 3.8+**
-- **Streamlit** - ממשק משתמש
-- **Pandas** - עיבוד נתונים
-- **Plotly** - ויזואליזציות
-- **NumPy** - חישובים נומריים
-
-## 🚀 התקנה והרצה
-
-### דרישות מקדימות
-
-## 📊 מאגרי מידע
-
-הפרויקט משתמש במספר מקורות מידע:
-
-### נתוני חטופים
-- **מקור**: נתונים רשמיים ממשרד החוץ ופלטפורמות חברתיות
-- **תדירות עדכון**: יומית
-- **שדות עיקריים**:
-  - שם
-  - גיל
-  - עיר
-  - תאריך חטיפה
-  - סטטוס
-  - ימים בשבי
-
-### נתוני רשתות חברתיות
-- **מקור**: X (Twitter), Facebook
-- **תדירות עדכון**: שעתית
-- **שדות עיקריים**:
-  - תאריך פרסום
-  - תוכן
-  - מספר שיתופים
-  - תגובות
-
-### נתוני כנסת ישראל
-- **מקור**: API הכנסת
-- **תדירות עדכון**: יומית
-- **שדות עיקריים**:
-  - תאריך
-  - סוג פעילות
-  - משתתפים
-  - החלטות
-
-### מבנה תיקיות נתונים
-
-## 🚀 Deployment Options
-
-### 1. Streamlit Cloud (Recommended)
-1. Fork this repository to your GitHub account
-2. Visit [Streamlit Cloud](https://share.streamlit.io)
-3. Connect with your GitHub account
-4. Deploy from your forked repository
-5. Add the following secrets in Streamlit Cloud settings:
-   - `TWITTER_API_KEY`
-   - `TWITTER_API_SECRET`
-   - `TWITTER_BEARER_TOKEN`
-
-### 2. Local Deployment
+1. Create and activate a virtual environment:

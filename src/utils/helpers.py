@@ -3,6 +3,10 @@ import pandas as pd
 from datetime import datetime
 from pathlib import Path
 import yaml
+import logging
+from typing import Dict, Any
+
+logger = logging.getLogger(__name__)
 
 def set_page_config():
     """Configure Streamlit page settings"""
@@ -75,7 +79,7 @@ TRANSLATIONS = {
     'sample_data': {'he': 'נתוני דוגמה', 'en': 'Sample Data'},
     'official_data': {'he': 'נתונים רשמיים', 'en': 'Official Data'},
     'social_media': {'he': 'רשתות חברתיות', 'en': 'Social Media'},
-    'generate_sample': {'he': 'יצירת נתונ�� דוגמה', 'en': 'Generate Sample Data'},
+    'generate_sample': {'he': 'יצירת נתונ דוגמה', 'en': 'Generate Sample Data'},
     'load_official': {'he': 'טעינת נתונים רשמיים', 'en': 'Load Official Data'},
     'load_social': {'he': 'טעינת נתוני רשתות חברתיות', 'en': 'Load Social Media Data'},
     'search': {'he': 'חיפוש', 'en': 'Search'},
@@ -146,7 +150,7 @@ TRANSLATIONS.update({
     'detailed_data': {'he': 'נתונים מפורטים', 'en': 'Detailed Data'},
     'key_events': {'he': 'אירועים מרכזיים', 'en': 'Key Events'},
     'filter_data': {'he': 'סינון נתונים', 'en': 'Filter Data'},
-    'city_filter': {'he': 'ס��נ��ן לפי עיר', 'en': 'Filter by City'},
+    'city_filter': {'he': 'סנן לפי עיר', 'en': 'Filter by City'},
     'search_data': {'he': 'חיפוש בנתונים', 'en': 'Search Data'},
     'search_names': {'he': 'חיפוש שמות', 'en': 'Search Names'},
     'data_source_info': {'he': 'מקור המידע', 'en': 'Data Source'},
@@ -167,3 +171,30 @@ TRANSLATIONS.update({
 def get_translation(key: str, lang: str) -> str:
     """Get translation for a key in specified language"""
     return TRANSLATIONS.get(key, {}).get(lang, key)
+
+def clean_hostage_data(data: Dict[str, Any]) -> Dict[str, Any]:
+    """Clean and validate hostage data"""
+    try:
+        return {
+            'name': str(data.get('name', 'Unknown')),
+            'age': int(data.get('age', -1)),
+            'location_taken': str(data.get('location_taken', 'Unknown')),
+            'status': str(data.get('status', 'Unknown')),
+            'days_in_captivity': int(data.get('days_in_captivity', -1)),
+            'capture_date': data.get('capture_date', '2023-10-07')
+        }
+    except Exception as e:
+        logger.error(f"Error cleaning hostage data: {str(e)}")
+        return {}
+
+def validate_data_source(source: str) -> bool:
+    """Validate data source type"""
+    return source in ['gov', 'csv', 'api']
+
+def calculate_days_in_captivity(capture_date: str) -> int:
+    """Calculate days in captivity"""
+    try:
+        capture = datetime.strptime(capture_date, '%Y-%m-%d')
+        return (datetime.now() - capture).days
+    except:
+        return -1

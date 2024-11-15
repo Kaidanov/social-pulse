@@ -1,0 +1,41 @@
+/* Add custom styles here if needed */
+.stApp {
+    background-color: #f4f6f9;
+}
+
+.metric-card:hover {
+    transform: translateY(-2px);
+    transition: all 0.3s ease;
+}
+
+.sidebar-menu {
+    background-color: #1a2634;
+    color: #ecf0f1;
+}
+
+.metric-container {
+    background-color: white;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 1rem;
+}
+
+.main-header {
+    font-size: 2.5rem;
+    font-weight: bold;
+    margin-bottom: 2rem;
+    color: #1f77b4;
+}
+
+.stButton>button {
+    transition: all 0.3s ease;
+}
+
+.stButton>button:hover {
+    transform: translateX(5px);
+}
+
+.user-profile img {
+    border: 2px solid #ecf0f1;
+} 

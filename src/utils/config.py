@@ -1,6 +1,8 @@
 import yaml
 from pathlib import Path
 from typing import Dict
+from dataclasses import dataclass
+from typing import List
 
 def load_config(config_path: str = "config.yaml") -> Dict:
     """Load configuration from YAML file"""
@@ -31,3 +33,15 @@ DEFAULT_CONFIG = {
         'knesset_api_url': 'https://knesset.gov.il/api/v1'
     }
 } 
+
+@dataclass
+class DataSourceConfig:
+    GOV_URL: str = "https://www.gov.il/en/pages/hostages-and-missing-persons-report"
+    CSV_DIR: str = "data"
+    CACHE_TIMEOUT: int = 3600  # 1 hour cache timeout
+
+@dataclass
+class AppConfig:
+    DEBUG: bool = True
+    DATA_SOURCES: List[str] = ('gov', 'csv', 'api')
+    BASE_URL: str = 'https://bringthemhome.org' 
