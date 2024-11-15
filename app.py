@@ -1,364 +1,342 @@
 import streamlit as st
-import pandas as pd
-import plotly.express as px
-import plotly.graph_objects as go
-from bs4 import BeautifulSoup
-import requests
-from datetime import datetime, timedelta
 import os
-import json
+from src.ui.components import SidebarMenu
+from src.services.chart_service import ChartService
+from src.services.data_service import DataService
+from src.core.config import Config
+from typing import List, Dict
 
-class DataSources:
-    def __init__(self):
-        self.cache_dir = 'data'
-        os.makedirs(self.cache_dir, exist_ok=True)
-        
-    def fetch_idf_blog(self):
-        """Fetch IDF blog updates"""
-        try:
-            url = "https://www.idf.il/en/articles/news/"
-            headers = {'User-Agent': 'Mozilla/5.0'}
-            response = requests.get(url, headers=headers)
-            soup = BeautifulSoup(response.content, 'html.parser')
-            updates = []
-            
-            for item in soup.select('.article-item'):
-                updates.append({
-                    'date': datetime.now().strftime('%Y-%m-%d'),
-                    'title': item.select_one('h2').text.strip() if item.select_one('h2') else '',
-                    'content': item.select_one('p').text.strip() if item.select_one('p') else '',
-                    'source': 'IDF Blog'
-                })
-            return pd.DataFrame(updates)
-        except Exception as e:
-            st.error(f"Error fetching IDF blog: {str(e)}")
-            return pd.DataFrame()
-
-    def fetch_mfa_updates(self):
-        """Fetch Ministry of Foreign Affairs updates"""
-        try:
-            url = "https://www.gov.il/en/departments/news/ministry-of-foreign-affairs-news"
-            headers = {'User-Agent': 'Mozilla/5.0'}
-            response = requests.get(url, headers=headers)
-            soup = BeautifulSoup(response.content, 'html.parser')
-            updates = []
-            
-            for item in soup.select('.news-item'):
-                updates.append({
-                    'date': datetime.now().strftime('%Y-%m-%d'),
-                    'title': item.select_one('h3').text.strip() if item.select_one('h3') else '',
-                    'content': item.select_one('.content').text.strip() if item.select_one('.content') else '',
-                    'source': 'MFA Updates'
-                })
-            return pd.DataFrame(updates)
-        except Exception as e:
-            st.error(f"Error fetching MFA updates: {str(e)}")
-            return pd.DataFrame()
-
-    def fetch_hostages_data(self):
-        """Load and process hostages data"""
-        try:
-            df = pd.read_csv('data/hostages.csv')
-            # Add data processing if needed
-            return df
-        except Exception as e:
-            st.error(f"Error loading hostages data: {str(e)}")
-            return pd.DataFrame()
-
-class DataManager:
-    def __init__(self):
-        self.cache_dir = 'data'
-        self.data_sources = DataSources()
-        self.ensure_cache_dir()
-        
-    def ensure_cache_dir(self):
-        os.makedirs(self.cache_dir, exist_ok=True)
-        
-    def refresh_data(self):
-        """Fetch and combine data from all sources"""
-        # Fetch data from each source
-        idf_updates = self.data_sources.fetch_idf_blog()
-        mfa_updates = self.data_sources.fetch_mfa_updates()
-        hostages_data = self.data_sources.fetch_hostages_data()
-        
-        # Save updated data
-        if not idf_updates.empty:
-            self.save_data(idf_updates, 'idf_updates.csv')
-        if not mfa_updates.empty:
-            self.save_data(mfa_updates, 'mfa_updates.csv')
-        if not hostages_data.empty:
-            self.save_data(hostages_data, 'hostages.csv')
-        
-        return {
-            'idf_updates': idf_updates,
-            'mfa_updates': mfa_updates,
-            'hostages_data': hostages_data
-        }
-
-    def load_cached_data(self, filename):
-        try:
-            file_path = os.path.join(self.cache_dir, filename)
-            if os.path.exists(file_path):
-                return pd.read_csv(file_path)
-        except Exception as e:
-            st.error(f"Error loading data: {str(e)}")
-        return pd.DataFrame()
-
-    def save_data(self, df, filename):
-        try:
-            file_path = os.path.join(self.cache_dir, filename)
-            df.to_csv(file_path, index=False)
-        except Exception as e:
-            st.error(f"Error saving data: {str(e)}")
-
-def create_age_distribution_chart(df):
-    """Create an enhanced age distribution visualization"""
-    if 'age' not in df.columns:
-        return None
+def initialize_services(config: Config):
+    """Initialize all services with configuration"""
+    # Initialize services
+    data_service = DataService(config.DATA_DIR)
+    chart_service = ChartService()
+    sidebar_menu = SidebarMenu()
     
-    fig = px.histogram(
-        df,
-        x='age',
-        nbins=20,
-        title='Age Distribution of Hostages',
-        labels={'age': 'Age', 'count': 'Number of People'},
-        color_discrete_sequence=['#1f77b4']
-    )
-    fig.update_layout(
-        showlegend=False,
-        plot_bgcolor='white',
-        paper_bgcolor='white',
-        margin=dict(t=40, l=0, r=0, b=0)
-    )
-    return fig
-
-def create_status_timeline(df):
-    """Create a timeline of status changes"""
-    if 'status' not in df.columns or 'date' not in df.columns:
-        return None
-    
-    fig = px.line(
-        df.groupby(['date', 'status']).size().reset_index(name='count'),
-        x='date',
-        y='count',
-        color='status',
-        title='Status Changes Over Time',
-        labels={'date': 'Date', 'count': 'Number of People', 'status': 'Status'}
-    )
-    fig.update_layout(
-        hovermode='x unified',
-        plot_bgcolor='white',
-        paper_bgcolor='white'
-    )
-    return fig
-
-def create_location_map(df):
-    """Create a map visualization of locations"""
-    if 'latitude' not in df.columns or 'longitude' not in df.columns:
-        return None
-    
-    fig = px.scatter_mapbox(
-        df,
-        lat='latitude',
-        lon='longitude',
-        hover_name='name',
-        hover_data=['age', 'status'],
-        zoom=7,
-        title='Hostage Locations'
-    )
-    fig.update_layout(mapbox_style='carto-positron')
-    return fig
-
-# Add this new function for the sidebar menu
-def create_sidebar_menu():
-    st.sidebar.markdown("""
-    <style>
-        .sidebar-menu {
-            padding: 0;
-            margin: 0;
-            list-style-type: none;
-        }
-        .sidebar-menu li {
-            padding: 0.5rem 0;
-            border-bottom: 1px solid #2c3e50;
-        }
-        .sidebar-menu li:hover {
-            background-color: #2c3e50;
-            cursor: pointer;
-        }
-        .menu-header {
-            font-size: 1.2rem;
-            font-weight: bold;
-            padding: 1rem 0;
-            color: #ecf0f1;
-        }
-        .user-profile {
-            padding: 1rem;
-            text-align: center;
-            border-bottom: 1px solid #2c3e50;
-        }
-        .user-profile img {
-            border-radius: 50%;
-            margin-bottom: 0.5rem;
-        }
-    </style>
-    """, unsafe_allow_html=True)
-
-    # User Profile Section
-    st.sidebar.markdown("""
-        <div class="user-profile">
-            <img src="https://via.placeholder.com/80" alt="User Profile"/>
-            <h4 style="color: #ecf0f1;">John David</h4>
-            <p style="color: #bdc3c7;">Administrator</p>
-        </div>
-    """, unsafe_allow_html=True)
-
-    # Navigation Menu
-    menu_items = {
-        "General": {
-            "Dashboard": "📊",
-            "Widgets": "🔧",
-            "Elements": "🧩",
-            "Tables": "📋"
-        },
-        "Data Sources": {
-            "IDF Updates": "🔄",
-            "MFA Updates": "📰",
-            "Hostages Data": "👥",
-            "News Feed": "📑"
-        },
-        "Analytics": {
-            "Charts": "📈",
-            "Reports": "📋",
-            "Statistics": "📊"
-        },
-        "Settings": {
-            "Profile": "👤",
-            "Configuration": "⚙️",
-            "Help": "❓"
-        }
+    return {
+        'data_service': data_service,
+        'chart_service': chart_service,
+        'sidebar_menu': sidebar_menu
     }
 
-    selected_section = None
-    selected_item = None
-
-    for section, items in menu_items.items():
-        st.sidebar.markdown(f"<p class='menu-header'>{section}</p>", unsafe_allow_html=True)
-        for item, icon in items.items():
-            if st.sidebar.button(f"{icon} {item}", key=f"{section}-{item}"):
-                selected_section = section
-                selected_item = item
-
-    return selected_section, selected_item
-
-def main():
-    st.set_page_config(
-        page_title="Hostages Data Dashboard",
-        layout="wide",
-        initial_sidebar_state="expanded"
-    )
-    
-    # Add custom CSS for dark theme sidebar
+def render_latest_updates(updates: List[Dict]):
+    """Render latest updates with enhanced styling"""
     st.markdown("""
         <style>
-        [data-testid="stSidebar"] {
-            background-color: #1a2634;
+        .update-card {
+            background: white;
+            border-radius: 8px;
             padding: 1rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
         }
-        .st-emotion-cache-1cypcdb {
-            background-color: #1a2634;
+        .update-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
         }
-        .st-emotion-cache-1cypcdb:hover {
-            background-color: #2c3e50;
+        .update-title {
+            color: #1f77b4;
+            font-size: 1.1rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+            text-decoration: none;
         }
-        .stButton>button {
-            width: 100%;
-            text-align: left;
-            background-color: transparent;
-            color: #ecf0f1;
-            border: none;
-            padding: 0.5rem;
+        .update-title:hover {
+            color: #2c3e50;
         }
-        .stButton>button:hover {
-            background-color: #2c3e50;
+        .update-meta {
+            font-size: 0.8rem;
+            color: #666;
+            margin-bottom: 0.5rem;
+        }
+        .update-excerpt {
+            font-size: 0.9rem;
+            color: #444;
+            margin-bottom: 0.5rem;
+        }
+        .read-more {
+            color: #1f77b4;
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+        .read-more:hover {
+            text-decoration: underline;
+        }
+        .source-badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 1rem;
+            font-size: 0.8rem;
+            font-weight: 500;
+            background: rgba(31, 119, 180, 0.1);
+            color: #1f77b4;
         }
         </style>
     """, unsafe_allow_html=True)
 
-    # Create sidebar menu and get selected items
-    selected_section, selected_item = create_sidebar_menu()
+    for update in updates:
+        st.markdown(f"""
+            <div class="update-card">
+                <a href="{update['link']}" target="_blank" class="update-title">
+                    {update['title']}
+                </a>
+                <div class="update-meta">
+                    {update['date']} · <span class="source-badge">{update['source']}</span>
+                </div>
+                <div class="update-excerpt">
+                    {update['excerpt']}
+                </div>
+                <a href="{update['link']}" target="_blank" class="read-more">
+                    Read more →
+                </a>
+            </div>
+        """, unsafe_allow_html=True)
 
-    # Rest of your existing main content code...
-    data_manager = DataManager()
-
-    # Main Content Header
-    st.markdown('<p class="main-header">Hostages Data Dashboard</p>', unsafe_allow_html=True)
-
-    # Show different content based on selection
-    if selected_section and selected_item:
-        st.subheader(f"{selected_section} > {selected_item}")
+def render_default_dashboard(services: dict):
+    """Render the default dashboard view"""
+    st.markdown("""
+        <div class="main-content">
+            <div class="dashboard-container">
+                <h1 class="main-header">Hostages Data Dashboard</h1>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    # Get data summaries
+    data_service = services['data_service']
+    hostages_summary = data_service.get_hostages_summary()
+    
+    # Display loading state
+    with st.spinner("Loading data..."):
+        hostages_data = data_service.load_hostages()
         
-        if selected_item == "Dashboard":
-            # Your existing dashboard content
-            col1, col2, col3, col4 = st.columns(4)
-            with col1:
-                st.markdown('<div class="metric-container">', unsafe_allow_html=True)
-                st.metric("Total Hostages", "239", delta="-4")
-                st.markdown('</div>', unsafe_allow_html=True)
-            # ... (rest of your metrics)
-
-        elif selected_item == "Charts":
-            # Load and display charts
-            hostages_df = data_manager.load_cached_data('hostages.csv')
-            if not hostages_df.empty:
-                tab1, tab2, tab3 = st.tabs(["Age Distribution", "Status Timeline", "Location Map"])
-                # ... (your existing charts code)
-
-        elif selected_item == "Reports":
-            st.write("Reports section - Coming soon")
-
-    else:
-        # Show default dashboard content
-        col1, col2, col3, col4 = st.columns(4)
+        if hostages_data.empty:
+            st.warning("No hostage data available. Please check the data source connection.")
+            return
+    
+    # Display metrics
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.metric("Total Hostages", hostages_summary['total'])
+    with col2:
+        st.metric("Released", hostages_summary['released'])
+    with col3:
+        st.metric("Still Held", hostages_summary['held'])
+    with col4:
+        st.metric("Deceased", hostages_summary['deceased'])
+    
+    # Display charts if data is available
+    if not hostages_data.empty:
+        col1, col2 = st.columns(2)
+        
         with col1:
-            st.markdown('<div class="metric-container">', unsafe_allow_html=True)
-            st.metric("Total Hostages", "239", delta="-4")
-            st.markdown('</div>', unsafe_allow_html=True)
+            st.subheader("Age Distribution")
+            age_chart = services['chart_service'].create_chart(hostages_data, "age_distribution")
+            if age_chart:
+                st.plotly_chart(age_chart, use_container_width=True)
         
         with col2:
-            st.markdown('<div class="metric-container">', unsafe_allow_html=True)
-            st.metric("Released", "110", delta="+4")
-            st.markdown('</div>', unsafe_allow_html=True)
-        
-        with col3:
-            st.markdown('<div class="metric-container">', unsafe_allow_html=True)
-            st.metric("Still Held", "129", delta="-4")
-            st.markdown('</div>', unsafe_allow_html=True)
-        
-        with col4:
-            st.markdown('<div class="metric-container">', unsafe_allow_html=True)
-            st.metric("Deceased", "11", delta="+0")
-            st.markdown('</div>', unsafe_allow_html=True)
-        
-        # Display charts
-        hostages_df = data_manager.load_cached_data('hostages.csv')
-        if not hostages_df.empty:
-            tab1, tab2, tab3 = st.tabs(["Age Distribution", "Status Timeline", "Location Map"])
+            st.subheader("Status Distribution")
+            status_chart = services['chart_service'].create_chart(hostages_data, "status_pie")
+            if status_chart:
+                st.plotly_chart(status_chart, use_container_width=True)
+
+def render_selected_content(section: str, item: str, services: dict):
+    """Render content based on menu selection"""
+    st.title(f"{section} - {item}")
+    
+    if section == "Dashboard":
+        if item == "Overview":
+            render_default_dashboard(services)
+        elif item == "Analytics":
+            render_analytics_dashboard(services)
+        elif item == "Reports":
+            render_reports_dashboard(services)
             
-            with tab1:
-                fig = create_age_distribution_chart(hostages_df)
-                if fig:
-                    st.plotly_chart(fig, use_container_width=True)
+    elif section == "Data Management":
+        if item == "Hostages":
+            render_hostages_management(services)
+        elif item == "News Updates":
+            render_news_management(services)
+        elif item == "IDF Data":
+            render_idf_data_management(services)
             
-            with tab2:
-                fig = create_status_timeline(hostages_df)
-                if fig:
-                    st.plotly_chart(fig, use_container_width=True)
+    elif section == "Analytics":
+        if item == "Statistics":
+            render_statistics(services)
+        elif item == "Trends":
+            render_trends(services)
+        elif item == "Export":
+            render_export_options(services)
             
-            with tab3:
-                fig = create_location_map(hostages_df)
-                if fig:
-                    st.plotly_chart(fig, use_container_width=True)
+    elif section == "Settings":
+        if item == "Profile":
+            render_profile_settings(services)
+        elif item == "Preferences":
+            render_preferences(services)
+        elif item == "System":
+            render_system_settings(services)
+
+def render_analytics_dashboard(services: dict):
+    st.title("Analytics Dashboard")
+    data_service = services['data_service']
+    chart_service = services['chart_service']
+    
+    # Load data
+    hostages_data = data_service.load_hostages()
+    if hostages_data.empty:
+        st.warning("No data available for analysis")
+        return
+    
+    # Summary statistics
+    col1, col2, col3 = st.columns(3)
+    age_stats = data_service.get_age_statistics()
+    
+    with col1:
+        st.metric("Average Age", f"{age_stats['average_age']:.1f}")
+    with col2:
+        st.metric("Youngest", age_stats['min_age'])
+    with col3:
+        st.metric("Oldest", age_stats['max_age'])
+    
+    # Charts
+    tab1, tab2, tab3, tab4 = st.tabs([
+        "Age Distribution", "Status Overview", 
+        "Age Groups Analysis", "Timeline Analysis"
+    ])
+    
+    with tab1:
+        fig = chart_service.create_chart(hostages_data, "age_distribution")
+        if fig:
+            st.plotly_chart(fig, use_container_width=True)
+    
+    with tab2:
+        fig = chart_service.create_chart(hostages_data, "status_pie")
+        if fig:
+            st.plotly_chart(fig, use_container_width=True)
+    
+    with tab3:
+        fig = chart_service.create_chart(hostages_data, "age_group_bar")
+        if fig:
+            st.plotly_chart(fig, use_container_width=True)
+    
+    with tab4:
+        fig = chart_service.create_chart(hostages_data, "timeline_combined")
+        if fig:
+            st.plotly_chart(fig, use_container_width=True)
+
+def render_reports_dashboard(services: dict):
+    st.title("Reports Dashboard")
+    st.info("Reports functionality coming soon...")
+
+def render_hostages_management(services: dict):
+    st.title("Hostages Management")
+    data_service = services['data_service']
+    hostages_data = data_service.load_hostages()
+    if not hostages_data.empty:
+        st.dataframe(hostages_data)
+
+def render_news_management(services: dict):
+    st.title("News Management")
+    st.info("News management functionality coming soon...")
+
+def render_idf_data_management(services: dict):
+    st.title("IDF Data Management")
+    data_service = services['data_service']
+    hostages_data = data_service.load_hostages()
+    if not hostages_data.empty:
+        st.dataframe(hostages_data)
+    else:
+        st.warning("No data available")
+
+def render_statistics(services: dict):
+    st.title("Statistics")
+    data_service = services['data_service']
+    summary = data_service.get_hostages_summary()
+    st.json(summary)
+
+def render_trends(services: dict):
+    st.title("Trends Analysis")
+    st.info("Trends analysis coming soon...")
+
+def render_export_options(services: dict):
+    st.title("Export Options")
+    st.info("Export functionality coming soon...")
+
+def render_profile_settings(services: dict):
+    st.title("Profile Settings")
+    st.info("Profile settings coming soon...")
+
+def render_preferences(services: dict):
+    st.title("Preferences")
+    st.info("Preferences coming soon...")
+
+def render_system_settings(services: dict):
+    st.title("System Settings")
+    st.info("System settings coming soon...")
+
+def render_hostages_gallery(services: dict):
+    """Render hostages photo gallery"""
+    st.title("Hostages Gallery")
+    
+    data_service = services['data_service']
+    hostages_data = data_service.load_n12_hostages()
+    
+    if hostages_data.empty:
+        st.warning("No hostage data available")
+        return
+    
+    # Create grid of hostage cards
+    cols = st.columns(4)
+    for idx, hostage in hostages_data.iterrows():
+        with cols[idx % 4]:
+            if hostage['local_image_path'] and os.path.exists(hostage['local_image_path']):
+                st.image(hostage['local_image_path'])
+            st.markdown(f"""
+                **{hostage['name']}**  
+                Age: {hostage['age']}  
+                Status: {hostage['status']}  
+                Location: {hostage['location']}
+            """)
+
+def main():
+    try:
+        # Load configuration
+        config = Config.load()
+        
+        # Page config
+        st.set_page_config(
+            page_title="Hostages Data Dashboard",
+            layout="wide",
+            initial_sidebar_state="expanded"
+        )
+        
+        # Initialize services
+        services = initialize_services(config)
+        
+        # Render sidebar and get selection
+        try:
+            selected_section, selected_item = services['sidebar_menu'].render()
+        except Exception as e:
+            st.error(f"Error rendering sidebar: {str(e)}")
+            selected_section, selected_item = None, None
+        
+        # Main content based on selection
+        try:
+            if selected_section and selected_item:
+                render_selected_content(selected_section, selected_item, services)
+            else:
+                render_default_dashboard(services)
+        except Exception as e:
+            st.error(f"Error rendering content: {str(e)}")
+            st.info("Please try refreshing the page or contact support if the issue persists.")
+            
+    except Exception as e:
+        st.error(f"Application error: {str(e)}")
+        st.info("Please check your configuration and try again.")
 
 if __name__ == "__main__":
     main()
