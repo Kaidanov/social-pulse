@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 import pandas as pd
 
 class IDataSource(ABC):
@@ -18,5 +18,5 @@ class IDataManager(ABC):
 
 class IChartService(ABC):
     @abstractmethod
-    def create_chart(self, data: pd.DataFrame, chart_type: str) -> Any:
+    def create_chart(self, data: pd.DataFrame, chart_type: str) -> Optional[Any]:
         pass 

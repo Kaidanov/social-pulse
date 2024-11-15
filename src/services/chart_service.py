@@ -4,6 +4,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import pandas as pd
 from typing import Optional
+import streamlit as st
 
 class ChartService(IChartService):
     def __init__(self):
@@ -33,17 +34,30 @@ class ChartService(IChartService):
         }
 
     def create_chart(self, data: pd.DataFrame, chart_type: str) -> Optional[go.Figure]:
-        chart_methods = {
-            'age_distribution': self._create_age_distribution,
-            'status_timeline': self._create_status_timeline,
-            'location_map': self._create_location_map,
-            'status_pie': self._create_status_pie,
-            'age_group_bar': self._create_age_group_bar,
-            'timeline_combined': self._create_timeline_combined
-        }
-        
-        method = chart_methods.get(chart_type)
-        return method(data) if method else None
+        """Create chart with error handling"""
+        try:
+            if data.empty:
+                st.warning("No data available for visualization")
+                return None
+            
+            chart_methods = {
+                'age_distribution': self._create_age_distribution,
+                'status_timeline': self._create_status_timeline,
+                'location_map': self._create_location_map,
+                'status_pie': self._create_status_pie,
+                'age_group_bar': self._create_age_group_bar,
+                'timeline_combined': self._create_timeline_combined
+            }
+            
+            method = chart_methods.get(chart_type)
+            if not method:
+                st.error(f"Unknown chart type: {chart_type}")
+                return None
+            
+            return method(data)
+        except Exception as e:
+            st.error(f"Error creating chart: {str(e)}")
+            return None
 
     def _create_age_distribution(self, df: pd.DataFrame) -> go.Figure:
         if 'age' not in df.columns:
@@ -82,19 +96,32 @@ class ChartService(IChartService):
     def _create_status_pie(self, df: pd.DataFrame) -> go.Figure:
         if 'status' not in df.columns:
             return None
-            
+        
         status_counts = df['status'].value_counts()
+        colors = {
+            'Held': self.color_scheme['danger'],
+            'Released': self.color_scheme['success'],
+            'Deceased': self.color_scheme['warning']
+        }
         
         fig = go.Figure(data=[go.Pie(
             labels=status_counts.index,
             values=status_counts.values,
             hole=.3,
-            marker_colors=[self.color_scheme[status.lower()] for status in status_counts.index]
+            marker_colors=[colors.get(status, self.color_scheme['primary']) for status in status_counts.index]
         )])
         
         fig.update_layout(
             title='Hostage Status Distribution',
-            annotations=[dict(text='Status', x=0.5, y=0.5, font_size=20, showarrow=False)]
+            annotations=[dict(text='Status', x=0.5, y=0.5, font_size=20, showarrow=False)],
+            showlegend=True,
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="right",
+                x=1
+            )
         )
         
         return fig

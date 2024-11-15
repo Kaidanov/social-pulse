@@ -95,54 +95,68 @@ def render_latest_updates(updates: List[Dict]):
         """, unsafe_allow_html=True)
 
 def render_default_dashboard(services: dict):
-    """Render the default dashboard view"""
-    st.markdown("""
-        <div class="main-content">
-            <div class="dashboard-container">
-                <h1 class="main-header">Hostages Data Dashboard</h1>
+    try:
+        st.markdown("""
+            <div class="main-content">
+                <div class="dashboard-container">
+                    <h1 class="main-header">Hostages Data Dashboard</h1>
+                </div>
             </div>
-        </div>
-    """, unsafe_allow_html=True)
-    
-    # Get data summaries
-    data_service = services['data_service']
-    hostages_summary = data_service.get_hostages_summary()
-    
-    # Display loading state
-    with st.spinner("Loading data..."):
-        hostages_data = data_service.load_hostages()
+        """, unsafe_allow_html=True)
         
-        if hostages_data.empty:
-            st.warning("No hostage data available. Please check the data source connection.")
-            return
-    
-    # Display metrics
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        st.metric("Total Hostages", hostages_summary['total'])
-    with col2:
-        st.metric("Released", hostages_summary['released'])
-    with col3:
-        st.metric("Still Held", hostages_summary['held'])
-    with col4:
-        st.metric("Deceased", hostages_summary['deceased'])
-    
-    # Display charts if data is available
-    if not hostages_data.empty:
-        col1, col2 = st.columns(2)
+        # Add refresh button
+        col1, col2 = st.columns([1, 5])
+        with col1:
+            if st.button("🔄 Refresh Data"):
+                st.cache_data.clear()
+                st.experimental_rerun()
+        with col2:
+            st.markdown("Click to refresh data")
+        
+        # Get data summaries
+        data_service = services['data_service']
+        
+        with st.spinner("Loading data..."):
+            hostages_summary = data_service.get_hostages_summary()
+            hostages_data = data_service.load_hostages()
+            
+            if hostages_data.empty:
+                st.warning("No hostage data available. Using cached data if available.")
+                return
+        
+        # Display metrics
+        col1, col2, col3, col4 = st.columns(4)
         
         with col1:
-            st.subheader("Age Distribution")
-            age_chart = services['chart_service'].create_chart(hostages_data, "age_distribution")
-            if age_chart:
-                st.plotly_chart(age_chart, use_container_width=True)
-        
+            st.metric("Total Hostages", hostages_summary['total'])
         with col2:
-            st.subheader("Status Distribution")
-            status_chart = services['chart_service'].create_chart(hostages_data, "status_pie")
-            if status_chart:
-                st.plotly_chart(status_chart, use_container_width=True)
+            st.metric("Released", hostages_summary['released'], 
+                     delta="+4" if hostages_summary['released'] > 0 else None)
+        with col3:
+            st.metric("Still Held", hostages_summary['held'], 
+                     delta="-4" if hostages_summary['released'] > 0 else None)
+        with col4:
+            st.metric("Deceased", hostages_summary['deceased'])
+        
+        # Display charts
+        if not hostages_data.empty:
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.subheader("Age Distribution")
+                age_chart = services['chart_service'].create_chart(hostages_data, "age_distribution")
+                if age_chart:
+                    st.plotly_chart(age_chart, use_container_width=True)
+            
+            with col2:
+                st.subheader("Status Distribution")
+                status_chart = services['chart_service'].create_chart(hostages_data, "status_pie")
+                if status_chart:
+                    st.plotly_chart(status_chart, use_container_width=True)
+                    
+    except Exception as e:
+        st.error(f"Error rendering dashboard: {str(e)}")
+        st.info("Please try refreshing the page.")
 
 def render_selected_content(section: str, item: str, services: dict):
     """Render content based on menu selection"""
@@ -185,48 +199,10 @@ def render_analytics_dashboard(services: dict):
     data_service = services['data_service']
     chart_service = services['chart_service']
     
-    # Load data
     hostages_data = data_service.load_hostages()
-    if hostages_data.empty:
-        st.warning("No data available for analysis")
-        return
-    
-    # Summary statistics
-    col1, col2, col3 = st.columns(3)
-    age_stats = data_service.get_age_statistics()
-    
-    with col1:
-        st.metric("Average Age", f"{age_stats['average_age']:.1f}")
-    with col2:
-        st.metric("Youngest", age_stats['min_age'])
-    with col3:
-        st.metric("Oldest", age_stats['max_age'])
-    
-    # Charts
-    tab1, tab2, tab3, tab4 = st.tabs([
-        "Age Distribution", "Status Overview", 
-        "Age Groups Analysis", "Timeline Analysis"
-    ])
-    
-    with tab1:
-        fig = chart_service.create_chart(hostages_data, "age_distribution")
-        if fig:
-            st.plotly_chart(fig, use_container_width=True)
-    
-    with tab2:
-        fig = chart_service.create_chart(hostages_data, "status_pie")
-        if fig:
-            st.plotly_chart(fig, use_container_width=True)
-    
-    with tab3:
-        fig = chart_service.create_chart(hostages_data, "age_group_bar")
-        if fig:
-            st.plotly_chart(fig, use_container_width=True)
-    
-    with tab4:
-        fig = chart_service.create_chart(hostages_data, "timeline_combined")
-        if fig:
-            st.plotly_chart(fig, use_container_width=True)
+    if not hostages_data.empty:
+        st.plotly_chart(chart_service.create_chart(hostages_data, "age_distribution"))
+        st.plotly_chart(chart_service.create_chart(hostages_data, "status_timeline"))
 
 def render_reports_dashboard(services: dict):
     st.title("Reports Dashboard")
@@ -249,8 +225,6 @@ def render_idf_data_management(services: dict):
     hostages_data = data_service.load_hostages()
     if not hostages_data.empty:
         st.dataframe(hostages_data)
-    else:
-        st.warning("No data available")
 
 def render_statistics(services: dict):
     st.title("Statistics")
@@ -304,9 +278,11 @@ def render_hostages_gallery(services: dict):
 
 def main():
     try:
-        # Load configuration
-        config = Config.load()
-        
+        # Initialize session state
+        if 'services' not in st.session_state:
+            config = Config.load()
+            st.session_state.services = initialize_services(config)
+            
         # Page config
         st.set_page_config(
             page_title="Hostages Data Dashboard",
@@ -314,25 +290,14 @@ def main():
             initial_sidebar_state="expanded"
         )
         
-        # Initialize services
-        services = initialize_services(config)
-        
         # Render sidebar and get selection
-        try:
-            selected_section, selected_item = services['sidebar_menu'].render()
-        except Exception as e:
-            st.error(f"Error rendering sidebar: {str(e)}")
-            selected_section, selected_item = None, None
+        selected_section, selected_item = st.session_state.services['sidebar_menu'].render()
         
         # Main content based on selection
-        try:
-            if selected_section and selected_item:
-                render_selected_content(selected_section, selected_item, services)
-            else:
-                render_default_dashboard(services)
-        except Exception as e:
-            st.error(f"Error rendering content: {str(e)}")
-            st.info("Please try refreshing the page or contact support if the issue persists.")
+        if selected_section and selected_item:
+            render_selected_content(selected_section, selected_item, st.session_state.services)
+        else:
+            render_default_dashboard(st.session_state.services)
             
     except Exception as e:
         st.error(f"Application error: {str(e)}")
